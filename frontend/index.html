@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GlycoSense — Diabetes Risk Prediction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #060b14;
+    --card:     #0d1b2e;
+    --card2:    #111d2e;
+    --border:   #1a3050;
+    --sky:      #38bdf8;
+    --sky-dim:  #1e6a8a;
+    --rose:     #fb7185;
+    --emerald:  #34d399;
+    --amber:    #fbbf24;
+    --text:     #e2e8f0;
+    --muted:    #7a9bbf;
+    --grid:     rgba(56,189,248,0.06);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Background ── */
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+  .orb {
+    position: fixed; border-radius: 50%; filter: blur(100px);
+    pointer-events: none; z-index: 0; opacity: 0.12;
+  }
+  .orb-1 { width: 600px; height: 600px; background: var(--sky);   top: -200px; left: -200px; }
+  .orb-2 { width: 500px; height: 500px; background: var(--rose);  bottom: -150px; right: -150px; }
+  .orb-3 { width: 400px; height: 400px; background: var(--emerald); top: 40%; left: 40%; }
+
+  /* ── Layout ── */
+  .wrapper { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ── Header ── */
+  header {
+    text-align: center; padding: 60px 0 48px;
+  }
+  .logo-badge {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.2);
+    border-radius: 100px; padding: 6px 18px; margin-bottom: 20px;
+    font-size: 12px; color: var(--sky); letter-spacing: 0.1em; text-transform: uppercase;
+    animation: fadeDown 0.6s ease both;
+  }
+  .logo-badge span { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--sky); animation: pulse 2s infinite; }
+  h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(38px, 6vw, 72px);
+    line-height: 1.05;
+    background: linear-gradient(135deg, var(--sky) 0%, #a5f3fc 40%, var(--emerald) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    animation: fadeDown 0.7s 0.1s ease both;
+  }
+  .subtitle {
+    margin-top: 14px; color: var(--muted); font-size: 16px; font-weight: 300;
+    animation: fadeDown 0.7s 0.2s ease both;
+  }
+
+  /* ── Section ── */
+  .section { margin-bottom: 40px; animation: fadeUp 0.6s ease both; }
+  .section-label {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 16px;
+  }
+  .section-label::after { content:''; flex: 1; height: 1px; background: var(--border); }
+  .section-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.3);
+    display: grid; place-items: center; font-size: 11px; color: var(--sky);
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .card:hover { border-color: var(--sky-dim); box-shadow: 0 0 30px rgba(56,189,248,0.06); }
+
+  /* ── Model Cards ── */
+  .model-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media(max-width:680px){ .model-grid { grid-template-columns:1fr; } }
+
+  .model-card {
+    background: var(--card); border: 2px solid var(--border);
+    border-radius: 16px; padding: 20px 22px;
+    cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden;
+  }
+  .model-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at top left, rgba(56,189,248,0.05) 0%, transparent 70%);
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .model-card:hover::before { opacity: 1; }
+  .model-card:hover { border-color: var(--sky-dim); }
+  .model-card.selected { border-color: var(--sky); background: rgba(56,189,248,0.04); }
+  .model-card.selected::before { opacity: 1; }
+
+  .model-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+  .model-icon { font-size: 28px; line-height: 1; }
+  .radio-dot {
+    width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border);
+    display: grid; place-items: center; transition: all 0.2s; flex-shrink: 0;
+  }
+  .radio-dot::after {
+    content:''; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--sky); opacity: 0; transform: scale(0); transition: all 0.2s;
+  }
+  .model-card.selected .radio-dot { border-color: var(--sky); }
+  .model-card.selected .radio-dot::after { opacity: 1; transform: scale(1); }
+  .model-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .model-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .model-badges { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 100px;
+    border: 1px solid; letter-spacing: 0.04em;
+  }
+  .badge-sky     { color: var(--sky);     border-color: rgba(56,189,248,0.3);   background: rgba(56,189,248,0.07); }
+  .badge-emerald { color: var(--emerald); border-color: rgba(52,211,153,0.3);   background: rgba(52,211,153,0.07); }
+  .badge-rose    { color: var(--rose);    border-color: rgba(251,113,133,0.3);   background: rgba(251,113,133,0.07); }
+  .badge-amber   { color: var(--amber);   border-color: rgba(251,191,36,0.3);   background: rgba(251,191,36,0.07); }
+  .badge-muted   { color: var(--muted);   border-color: var(--border);           background: transparent; }
+
+  /* ── Form Grid ── */
+  .feature-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-bottom: 20px;
+  }
+  @media(max-width:900px){ .feature-grid { grid-template-columns: repeat(2,1fr); } }
+  @media(max-width:520px){ .feature-grid { grid-template-columns: 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label {
+    font-size: 12px; font-weight: 500; color: var(--muted);
+    display: flex; justify-content: space-between;
+  }
+  .field label span { color: var(--border); font-size: 11px; }
+  .field input {
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; color: var(--text);
+    font-size: 14px; font-family: 'DM Sans', sans-serif;
+    transition: border-color 0.2s, box-shadow 0.2s; outline: none; width: 100%;
+  }
+  .field input:focus { border-color: var(--sky); box-shadow: 0 0 0 3px rgba(56,189,248,0.1); }
+  .field input.error { border-color: var(--rose); }
+  .field .hint { font-size: 10px; color: #4a6680; }
+
+  /* ── Presets ── */
+  .presets { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .presets-label { font-size: 12px; color: var(--muted); }
+  .preset-btn {
+    font-size: 12px; font-weight: 500; padding: 6px 16px; border-radius: 100px;
+    cursor: pointer; border: 1px solid; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+  }
+  .preset-low     { color: var(--emerald); border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.07); }
+  .preset-low:hover { background: rgba(52,211,153,0.18); }
+  .preset-mod     { color: var(--amber);   border-color: rgba(251,191,36,0.4);  background: rgba(251,191,36,0.07); }
+  .preset-mod:hover { background: rgba(251,191,36,0.18); }
+  .preset-high    { color: var(--rose);    border-color: rgba(251,113,133,0.4); background: rgba(251,113,133,0.07); }
+  .preset-high:hover { background: rgba(251,113,133,0.18); }
+
+  /* ── Buttons ── */
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn {
+    padding: 13px 28px; border-radius: 12px; font-size: 14px; font-weight: 600;
+    cursor: pointer; border: none; font-family: 'DM Sans', sans-serif;
+    display: inline-flex; align-items: center; gap: 8px; transition: all 0.18s;
+    position: relative; overflow: hidden;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+    color: #02111e; box-shadow: 0 4px 20px rgba(56,189,248,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(56,189,248,0.45); }
+  .btn-secondary {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--sky); color: var(--sky); background: rgba(56,189,248,0.04); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+  /* ── Result Panel ── */
+  #result-panel { display: none; }
+  .result-grid {
+    display: grid; grid-template-columns: 280px 1fr; gap: 20px; align-items: start;
+  }
+  @media(max-width:700px){ .result-grid { grid-template-columns: 1fr; } }
+
+  /* Score Ring */
+  .ring-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .ring-svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 10; }
+  .ring-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1), stroke 0.5s; }
+  .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring-container { position: relative; width: 160px; height: 160px; }
+  .ring-pct { font-size: 32px; font-weight: 600; }
+  .ring-sublabel { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .verdict {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px; text-align: center;
+    margin-top: 4px;
+  }
+
+  /* Risk meter */
+  .risk-meter { width: 100%; }
+  .risk-track {
+    height: 8px; border-radius: 100px;
+    background: linear-gradient(90deg, var(--emerald), var(--amber) 50%, var(--rose));
+    position: relative; margin-bottom: 6px;
+  }
+  .risk-needle {
+    position: absolute; top: -4px; width: 16px; height: 16px; border-radius: 50%;
+    background: white; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    transform: translateX(-50%); transition: left 1s cubic-bezier(.4,0,.2,1);
+  }
+  .risk-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+
+  /* Detail cards */
+  .detail-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .detail-card {
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .detail-card .dk { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .detail-card .dv { font-size: 16px; font-weight: 600; }
+
+  /* Compare table */
+  #compare-wrap { display: none; margin-top: 20px; }
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .compare-table th {
+    padding: 10px 14px; text-align: left; color: var(--muted);
+    font-weight: 500; border-bottom: 1px solid var(--border); font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .compare-table td {
+    padding: 12px 14px; border-bottom: 1px solid rgba(26,48,80,0.5);
+    vertical-align: middle;
+  }
+  .compare-table tr:last-child td { border-bottom: none; }
+
+  /* ── Analytics ── */
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 20px; }
+  .tab-btn {
+    padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    cursor: pointer; border: 1px solid transparent;
+    font-family: 'DM Sans', sans-serif; color: var(--muted);
+    background: transparent; transition: all 0.15s;
+  }
+  .tab-btn.active { background: rgba(56,189,248,0.1); border-color: rgba(56,189,248,0.3); color: var(--sky); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Plot cards */
+  .plots-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media(max-width:700px){ .plots-grid { grid-template-columns: 1fr; } }
+
+  .plot-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; overflow: hidden; transition: all 0.2s;
+  }
+  .plot-card:hover { border-color: var(--sky-dim); transform: translateY(-2px); }
+  .plot-card img { width: 100%; display: block; }
+  .plot-card .plot-label {
+    padding: 10px 14px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border);
+  }
+  .plot-card.full { grid-column: 1 / -1; }
+
+  /* Metrics table */
+  .metrics-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .metrics-table th {
+    padding: 10px 16px; text-align: left;
+    color: var(--muted); font-weight: 500; font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .metrics-table td {
+    padding: 14px 16px; border-bottom: 1px solid rgba(26,48,80,0.5);
+  }
+  .metrics-table tr:last-child td { border-bottom: none; }
+  .metric-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .metric-bar-bg {
+    flex: 1; height: 6px; border-radius: 100px; background: rgba(255,255,255,0.06); overflow: hidden;
+  }
+  .metric-bar-fill {
+    height: 100%; border-radius: 100px;
+    background: linear-gradient(90deg, var(--sky-dim), var(--sky));
+    transition: width 0.8s cubic-bezier(.4,0,.2,1);
+  }
+  .best { color: var(--emerald); font-weight: 600; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 22px; font-size: 13px;
+    transition: transform 0.3s cubic-bezier(.4,0,.2,1), opacity 0.3s;
+    opacity: 0; z-index: 100; pointer-events: none; white-space: nowrap;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* ── Spinner ── */
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid rgba(2,17,30,0.3);
+    border-top-color: #02111e; border-radius: 50%; animation: spin 0.6s linear infinite;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeDown { from { opacity:0; transform: translateY(-16px); } to { opacity:1; transform: none; } }
+  @keyframes fadeUp   { from { opacity:0; transform: translateY(20px); }  to { opacity:1; transform: none; } }
+  @keyframes spin     { to { transform: rotate(360deg); } }
+  @keyframes pulse    { 0%,100%{ opacity:1; } 50%{ opacity:0.4; } }
+  @keyframes blink    { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
+
+  .section:nth-child(1){ animation-delay: 0.1s; }
+  .section:nth-child(2){ animation-delay: 0.2s; }
+  .section:nth-child(3){ animation-delay: 0.3s; }
+  .section:nth-child(4){ animation-delay: 0.4s; }
+
+  /* Loading state */
+  .skeleton {
+    background: linear-gradient(90deg, var(--card) 25%, rgba(255,255,255,0.05) 50%, var(--card) 75%);
+    background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="wrapper">
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo-badge"><span></span> AI-Powered Clinical Decision Support</div>
+    <h1>GlycoSense</h1>
+    <p class="subtitle">Diabetes Risk Prediction · Pima Indians Dataset · 3 ML Models</p>
+  </header>
+
+  <!-- ── Section 1: Model Selector ── -->
+  <div class="section" style="animation-delay:0.1s">
+    <div class="section-label"><div class="section-num">1</div> Choose a Model</div>
+    <div class="model-grid" id="model-grid">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <!-- ── Section 2: Input Form ── -->
+  <div class="section" style="animation-delay:0.2s">
+    <div class="section-label"><div class="section-num">2</div> Patient Features</div>
+    <div class="card">
+      <div class="presets">
+        <span class="presets-label">Quick Presets:</span>
+        <button class="preset-btn preset-low"  onclick="applyPreset('low')">✅ Low Risk Profile</button>
+        <button class="preset-btn preset-mod"  onclick="applyPreset('moderate')">⚠️ Moderate Risk</button>
+        <button class="preset-btn preset-high" onclick="applyPreset('high')">🔴 High Risk Profile</button>
+      </div>
+
+      <div class="feature-grid" id="feature-grid">
+        <!-- Populated by JS -->
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-predict" onclick="runPredict()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+          Predict with AI
+        </button>
+        <button class="btn btn-secondary" id="btn-compare" onclick="runCompare()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          Compare All 3 Models
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Result Panel ── -->
+  <div class="section" style="animation-delay:0.3s" id="result-panel">
+    <div class="section-label"><div class="section-num">3</div> Prediction Result</div>
+    <div class="card">
+      <div class="result-grid">
+        <!-- Left: Ring -->
+        <div class="ring-wrap">
+          <div class="ring-container">
+            <svg class="ring-svg" width="160" height="160" viewBox="0 0 160 160">
+              <circle class="ring-bg" cx="80" cy="80" r="65"/>
+              <circle class="ring-fill" id="ring-fill" cx="80" cy="80" r="65"
+                stroke-dasharray="408.41"
+                stroke-dashoffset="408.41"
+                stroke="var(--sky)"/>
+            </svg>
+            <div class="ring-center">
+              <div class="ring-pct" id="ring-pct">—</div>
+              <div class="ring-sublabel">probability</div>
+            </div>
+          </div>
+          <div class="verdict" id="verdict-text">—</div>
+          <!-- Risk Meter -->
+          <div class="risk-meter" style="max-width:200px;width:100%">
+            <div class="risk-track">
+              <div class="risk-needle" id="risk-needle" style="left:0%"></div>
+            </div>
+            <div class="risk-labels"><span>Low</span><span>Moderate</span><span>High</span></div>
+          </div>
+        </div>
+
+        <!-- Right: Details -->
+        <div>
+          <div class="detail-cards" id="detail-cards">
+            <div class="detail-card"><div class="dk">Risk Level</div><div class="dv" id="d-risk">—</div></div>
+            <div class="detail-card"><div class="dk">Probability</div><div class="dv" id="d-prob">—</div></div>
+            <div class="detail-card"><div class="dk">Model Used</div><div class="dv" id="d-model">—</div></div>
+            <div class="detail-card"><div class="dk">Features</div><div class="dv" id="d-feats">8 clinical</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compare table -->
+      <div id="compare-wrap">
+        <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:12px;margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+          Model Comparison
+        </div>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Model</th><th>Prediction</th><th>Probability</th><th>Risk Level</th>
+              <th>AUC</th><th>Accuracy</th>
+            </tr>
+          </thead>
+          <tbody id="compare-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 4: Analytics ── -->
+  <div class="section" style="animation-delay:0.4s">
+    <div class="section-label"><div class="section-num">4</div> Analytics</div>
+    <div class="card">
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('plots',this)">📊 Visualizations</button>
+        <button class="tab-btn" onclick="switchTab('metrics',this)">📈 Model Performance</button>
+      </div>
+
+      <!-- Plots tab -->
+      <div class="tab-content active" id="tab-plots">
+        <div class="plots-grid" id="plots-grid">
+          <div class="plot-card skeleton" style="height:200px"></div>
+          <div class="plot-card skeleton" style="height:200px"></div>
+          <div class="plot-card skeleton full" style="height:200px"></div>
+        </div>
+      </div>
+
+      <!-- Metrics tab -->
+      <div class="tab-content" id="tab-metrics">
+        <table class="metrics-table">
+          <thead>
+            <tr>
+              <th>Model</th><th>AUC</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th>
+            </tr>
+          </thead>
+          <tbody id="metrics-tbody">
+            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">Loading metrics…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<div id="toast"></div>
+
+<script>
+// ─── Config ──────────────────────────────────────────────────────────────────
+const API = '/api';
+
+const FEATURES = [
+  { key:'Pregnancies',             label:'Pregnancies',              unit:'count',    hint:'0 – 17',       min:0, max:17,   step:1,   default:3   },
+  { key:'Glucose',                 label:'Glucose',                  unit:'mg/dL',    hint:'70 – 200',     min:0, max:300,  step:1,   default:120 },
+  { key:'BloodPressure',           label:'Blood Pressure',           unit:'mm Hg',    hint:'60 – 122',     min:0, max:150,  step:1,   default:72  },
+  { key:'SkinThickness',           label:'Skin Thickness',           unit:'mm',       hint:'10 – 60',      min:0, max:100,  step:1,   default:23  },
+  { key:'Insulin',                 label:'Insulin (2-hr)',           unit:'mu U/ml',  hint:'0 – 846',      min:0, max:900,  step:1,   default:30  },
+  { key:'BMI',                     label:'BMI',                      unit:'kg/m²',    hint:'18 – 67',      min:0, max:80,   step:0.1, default:32  },
+  { key:'DiabetesPedigreeFunction',label:'Diabetes Pedigree',        unit:'score',    hint:'0.08 – 2.42',  min:0, max:3,    step:0.01,default:0.35},
+  { key:'Age',                     label:'Age',                      unit:'years',    hint:'21 – 81',      min:21,max:90,   step:1,   default:35  },
+];
+
+const PRESETS = {
+  low:      { Pregnancies:1, Glucose:85,  BloodPressure:66, SkinThickness:18, Insulin:30,  BMI:23.5, DiabetesPedigreeFunction:0.19, Age:25 },
+  moderate: { Pregnancies:3, Glucose:130, BloodPressure:76, SkinThickness:28, Insulin:100, BMI:32.0, DiabetesPedigreeFunction:0.45, Age:38 },
+  high:     { Pregnancies:8, Glucose:183, BloodPressure:85, SkinThickness:40, Insulin:350, BMI:45.2, DiabetesPedigreeFunction:1.19, Age:55 },
+};
+
+const MODEL_LABELS = {
+  random_forest:       'Random Forest',
+  logistic_regression: 'Logistic Regression',
+  gradient_boosting:   'Gradient Boosting',
+};
+
+let selectedModel    = 'random_forest';
+let modelMetrics     = {};
+let lastPrediction   = null;
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  buildFeatureGrid();
+  loadModels();
+  loadPlots();
+  loadMetrics();
+});
+
+// ─── Feature Grid ─────────────────────────────────────────────────────────────
+function buildFeatureGrid() {
+  const grid = document.getElementById('feature-grid');
+  grid.innerHTML = FEATURES.map(f => `
+    <div class="field">
+      <label for="f-${f.key}">${f.label} <span>${f.unit}</span></label>
+      <input type="number" id="f-${f.key}" min="${f.min}" max="${f.max}" step="${f.step}"
+             value="${f.default}" placeholder="${f.hint}">
+      <span class="hint">${f.hint}</span>
+    </div>
+  `).join('');
+}
+
+// ─── Model Cards ──────────────────────────────────────────────────────────────
+async function loadModels() {
+  try {
+    const res  = await fetch(`${API}/models`);
+    const data = await res.json();
+    renderModelCards(data.models);
+  } catch(e) {
+    document.getElementById('model-grid').innerHTML =
+      `<div style="grid-column:1/-1;color:var(--rose);font-size:13px">
+        ⚠️ Cannot reach API at ${API}. Make sure the backend is running:<br>
+        <code style="color:var(--sky);font-size:12px">python3 backend/app.py</code>
+      </div>`;
+  }
+}
+
+function renderModelCards(models) {
+  document.getElementById('model-grid').innerHTML = models.map(m => `
+    <div class="model-card ${m.key === selectedModel ? 'selected' : ''}"
+         id="mc-${m.key}" onclick="selectModel('${m.key}')">
+      <div class="model-header">
+        <div class="model-icon">${m.icon}</div>
+        <div class="radio-dot"></div>
+      </div>
+      <div class="model-name">${m.name}</div>
+      <div class="model-desc">${m.description}</div>
+      <div class="model-badges">
+        <span class="badge badge-sky">AUC ${m.auc ? m.auc.toFixed(3) : '—'}</span>
+        <span class="badge badge-emerald">Acc ${m.accuracy ? (m.accuracy*100).toFixed(1)+'%' : '—'}</span>
+        <span class="badge badge-muted">${m.loaded ? 'Loaded' : 'Not loaded'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectModel(key) {
+  selectedModel = key;
+  document.querySelectorAll('.model-card').forEach(c => {
+    c.classList.toggle('selected', c.id === `mc-${key}`);
+  });
+}
+
+// ─── Presets ─────────────────────────────────────────────────────────────────
+function applyPreset(level) {
+  const p = PRESETS[level];
+  Object.entries(p).forEach(([k, v]) => {
+    const el = document.getElementById(`f-${k}`);
+    if (el) el.value = v;
+  });
+  showToast(`${level === 'low' ? '✅ Low' : level === 'moderate' ? '⚠️ Moderate' : '🔴 High'} risk profile loaded`);
+}
+
+// ─── Get Features ─────────────────────────────────────────────────────────────
+function getFeatures() {
+  const features = {};
+  let valid = true;
+  FEATURES.forEach(f => {
+    const el  = document.getElementById(`f-${f.key}`);
+    const val = parseFloat(el.value);
+    el.classList.remove('error');
+    if (isNaN(val) || val < 0) {
+      el.classList.add('error');
+      valid = false;
+    } else {
+      features[f.key] = val;
+    }
+  });
+  return valid ? features : null;
+}
+
+// ─── Predict ─────────────────────────────────────────────────────────────────
+async function runPredict() {
+  const features = getFeatures();
+  if (!features) { showToast('⚠️ Please fill in all fields correctly', 'rose'); return; }
+
+  const btn = document.getElementById('btn-predict');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Analyzing…';
+
+  try {
+    const res  = await fetch(`${API}/predict`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ model: selectedModel, features }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    lastPrediction = data;
+    document.getElementById('compare-wrap').style.display = 'none';
+    showResult(data);
+  } catch(e) {
+    showToast(`❌ ${e.message}`, 'rose');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Predict with AI';
+  }
+}
+
+// ─── Compare ─────────────────────────────────────────────────────────────────
+async function runCompare() {
+  const features = getFeatures();
+  if (!features) { showToast('⚠️ Please fill in all fields correctly', 'rose'); return; }
+
+  const btn = document.getElementById('btn-compare');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="border-color:rgba(255,255,255,0.2);border-top-color:var(--text)"></div> Comparing…';
+
+  try {
+    const res  = await fetch(`${API}/compare`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ features }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    showCompare(data.results);
+  } catch(e) {
+    showToast(`❌ ${e.message}`, 'rose');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Compare All 3 Models';
+  }
+}
+
+// ─── Show Result ─────────────────────────────────────────────────────────────
+function showResult(data) {
+  const panel = document.getElementById('result-panel');
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  const pct = Math.round(data.probability * 100);
+  const circ = 2 * Math.PI * 65;
+  const offset = circ - (pct / 100) * circ;
+
+  // Ring color
+  const ringColor = pct < 35 ? 'var(--emerald)' : pct < 65 ? 'var(--amber)' : 'var(--rose)';
+  const fill = document.getElementById('ring-fill');
+  fill.style.stroke = ringColor;
+  fill.style.strokeDashoffset = circ;
+  requestAnimationFrame(() => { fill.style.strokeDashoffset = offset; });
+
+  document.getElementById('ring-pct').textContent = `${pct}%`;
+  document.getElementById('ring-pct').style.color = ringColor;
+
+  // Verdict
+  const verdict = document.getElementById('verdict-text');
+  verdict.textContent = data.label;
+  verdict.style.color = data.prediction === 1 ? 'var(--rose)' : 'var(--emerald)';
+
+  // Risk needle
+  document.getElementById('risk-needle').style.left = `${pct}%`;
+
+  // Detail cards
+  const riskColors = { Low: 'var(--emerald)', Moderate: 'var(--amber)', High: 'var(--rose)' };
+  document.getElementById('d-risk').textContent  = data.risk_level;
+  document.getElementById('d-risk').style.color  = riskColors[data.risk_level];
+  document.getElementById('d-prob').textContent  = `${(data.probability * 100).toFixed(1)}%`;
+  document.getElementById('d-model').textContent = MODEL_LABELS[data.model] || data.model;
+}
+
+// ─── Show Compare ─────────────────────────────────────────────────────────────
+function showCompare(results) {
+  // Show result panel if hidden
+  document.getElementById('result-panel').style.display = 'block';
+  document.getElementById('result-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // If no main prediction yet, use first result
+  if (!lastPrediction) {
+    const first = Object.entries(results)[0];
+    if (first) showResult({ ...first[1], model: first[0] });
+  }
+
+  const wrap  = document.getElementById('compare-wrap');
+  const tbody = document.getElementById('compare-tbody');
+  wrap.style.display = 'block';
+
+  const riskColors = { Low: 'var(--emerald)', Moderate: 'var(--amber)', High: 'var(--rose)' };
+  const icons      = { random_forest: '🌲', logistic_regression: '📈', gradient_boosting: '🚀' };
+
+  tbody.innerHTML = Object.entries(results).map(([key, r]) => {
+    const m = modelMetrics[key] || {};
+    return `<tr>
+      <td><strong>${icons[key] || ''} ${MODEL_LABELS[key] || key}</strong></td>
+      <td><span class="badge ${r.prediction === 1 ? 'badge-rose' : 'badge-emerald'}">${r.label}</span></td>
+      <td style="font-weight:600;color:${riskColors[r.risk_level]}">${(r.probability*100).toFixed(1)}%</td>
+      <td><span style="color:${riskColors[r.risk_level]}">${r.risk_level}</span></td>
+      <td>${m.auc ? m.auc.toFixed(3) : '—'}</td>
+      <td>${m.accuracy ? (m.accuracy*100).toFixed(1)+'%' : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── Plots ───────────────────────────────────────────────────────────────────
+async function loadPlots() {
+  try {
+    const res   = await fetch(`${API}/plots`);
+    const data  = await res.json();
+    const grid  = document.getElementById('plots-grid');
+    if (!data.plots || data.plots.length === 0) {
+      grid.innerHTML = `<div style="grid-column:1/-1;color:var(--muted);font-size:13px">No plots found. Run train_models.py first.</div>`;
+      return;
+    }
+    grid.innerHTML = data.plots.map((p, i) => `
+      <div class="plot-card ${i >= data.plots.length - 1 && data.plots.length % 2 !== 0 ? 'full' : ''}">
+        <img src="${API.replace('/api','')}/api/plots/${p.filename}" alt="${p.label}" loading="lazy">
+        <div class="plot-label">${p.label}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    document.getElementById('plots-grid').innerHTML =
+      `<div style="grid-column:1/-1;color:var(--muted);font-size:13px">Could not load plots — is the backend running?</div>`;
+  }
+}
+
+// ─── Metrics ─────────────────────────────────────────────────────────────────
+async function loadMetrics() {
+  try {
+    const res  = await fetch(`${API}/metrics`);
+    const data = await res.json();
+    modelMetrics = data.metrics || {};
+    renderMetrics(modelMetrics);
+  } catch(e) {
+    document.getElementById('metrics-tbody').innerHTML =
+      `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">Could not load metrics</td></tr>`;
+  }
+}
+
+function renderMetrics(metrics) {
+  const keys = ['auc', 'accuracy', 'precision', 'recall', 'f1'];
+  // Find best per column
+  const best = {};
+  keys.forEach(k => {
+    best[k] = Math.max(...Object.values(metrics).map(m => m[k] || 0));
+  });
+
+  const icons = { random_forest: '🌲', logistic_regression: '📈', gradient_boosting: '🚀' };
+  const names = { random_forest: 'Random Forest', logistic_regression: 'Logistic Regression', gradient_boosting: 'Gradient Boosting' };
+
+  document.getElementById('metrics-tbody').innerHTML = Object.entries(metrics).map(([key, m]) => `
+    <tr>
+      <td>${icons[key] || ''} <strong>${names[key] || key}</strong></td>
+      ${keys.map(k => `
+        <td>
+          <div class="metric-bar-wrap">
+            <span class="${m[k] >= best[k] ? 'best' : ''}">${(m[k] * 100).toFixed(1)}%</span>
+            <div class="metric-bar-bg">
+              <div class="metric-bar-fill" style="width:${m[k]*100}%"></div>
+            </div>
+          </div>
+        </td>
+      `).join('')}
+    </tr>
+  `).join('');
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+}
+
+// ─── Toast ───────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type = 'sky') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = type === 'rose' ? 'rgba(251,113,133,0.3)' : 'var(--border)';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
